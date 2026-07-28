@@ -8,17 +8,16 @@ export default function FundedPackages() {
     useTrading();
 
   return (
-    <section id="funded" className="border-t border-line px-4 py-12 sm:px-6">
-      <div className="mx-auto max-w-6xl">
+    <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
         <p className="mb-1 text-[10px] uppercase tracking-widest text-fg-dim">
           Funded accounts
         </p>
-        <h2 className="mb-2 text-2xl font-bold">Trade with our capital</h2>
+        <h1 className="mb-2 text-2xl font-bold">Trade with our capital</h1>
         <p className="mb-6 max-w-2xl text-sm text-fg-dim">
           Deposit a small entry fee to unlock a funded challenge account. Hit
           the profit target before you hit the max drawdown, and the reward is
-          yours — the trading panel above is wired directly to whichever
-          challenge you activate.
+          yours — the trade tab is wired directly to whichever challenge you
+          activate, so bets you place there settle straight into this balance.
         </p>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
@@ -66,8 +65,7 @@ export default function FundedPackages() {
             );
           })}
         </div>
-      </div>
-    </section>
+    </div>
   );
 }
 

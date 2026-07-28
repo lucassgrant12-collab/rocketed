@@ -12,6 +12,7 @@ import { fetchSpotPrices } from "@/lib/coingecko";
 import {
   ActiveChallenge,
   AssetId,
+  BET_PRESETS,
   Direction,
   FUNDED_TIERS,
   Position,
@@ -27,9 +28,7 @@ interface PlaceBetArgs {
   asset: AssetId;
   direction: Direction;
   amount: number;
-  leverage: number;
-  targetPct: number; // distance to target, as +/- percent of entry
-  barrierPct: number; // distance to barrier, as percent of entry
+  presetId: string;
 }
 
 interface TradingState {
@@ -42,7 +41,7 @@ interface TradingState {
   connect: () => void;
   disconnect: () => void;
   deposit: (amount: number) => void;
-  placeBet: (args: PlaceBetArgs) => void;
+  placeBet: (args: PlaceBetArgs) => Position[] | null;
   startChallenge: (tierId: string) => void;
   resetChallenge: () => void;
 }
@@ -65,8 +64,7 @@ function resolvePosition(pos: Position, price: number): Position {
     pnl = -pos.amount;
   } else if (hitTarget) {
     status = "won";
-    // fixed payout curve: tighter target relative to leverage pays more
-    pnl = pos.amount * 1.8;
+    pnl = pos.amount * pos.payoutMultiplier;
   } else {
     const move = (price - pos.entryPrice) / pos.entryPrice;
     const directional = pos.side === "up" ? move : -move;
@@ -170,7 +168,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
 
   const placeBet = useCallback((args: PlaceBetArgs) => {
     const price = pricesRef.current?.[args.asset];
-    if (!price) return;
+    const preset = BET_PRESETS.find((p) => p.id === args.presetId);
+    if (!price || !preset) return null;
 
     const sides: ("up" | "down")[] =
       args.direction === "both" ? ["up", "down"] : [args.direction];
@@ -181,22 +180,23 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     const newPositions: Position[] = sides.map((side) => {
       const targetPrice =
         side === "up"
-          ? price * (1 + args.targetPct / 100)
-          : price * (1 - args.targetPct / 100);
+          ? price * (1 + preset.targetPct / 100)
+          : price * (1 - preset.targetPct / 100);
       const barrierPrice =
         side === "up"
-          ? price * (1 - args.barrierPct / 100)
-          : price * (1 + args.barrierPct / 100);
+          ? price * (1 - preset.barrierPct / 100)
+          : price * (1 + preset.barrierPct / 100);
 
       return {
         id: `${Date.now()}-${side}-${Math.random().toString(36).slice(2, 8)}`,
         asset: args.asset,
         side,
         amount: perSideAmount,
-        leverage: args.leverage,
+        leverage: preset.leverage,
         entryPrice: price,
         targetPrice,
         barrierPrice,
+        payoutMultiplier: preset.payoutMultiplier,
         openedAt: Date.now(),
         status: "open",
         pnl: 0,
@@ -210,6 +210,7 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       setWalletBalance((b) => b - totalCost);
     }
     setPositions((prev) => [...newPositions, ...prev]);
+    return newPositions;
   }, [challenge]);
 
   const startChallenge = useCallback((tierId: string) => {

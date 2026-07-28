@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { TradingProvider } from "@/context/TradingContext";
+import Navbar from "@/components/Navbar";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -29,7 +30,15 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <TradingProvider>{children}</TradingProvider>
+        <TradingProvider>
+          <div className="flex min-h-full flex-col">
+            <Navbar />
+            <main className="flex-1">{children}</main>
+            <footer className="border-t border-line px-4 py-6 text-center text-[10px] uppercase tracking-widest text-fg-dim sm:px-6">
+              Rocketed — demo build, mock funds only, no real money at risk.
+            </footer>
+          </div>
+        </TradingProvider>
       </body>
     </html>
   );

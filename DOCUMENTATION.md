@@ -4,6 +4,40 @@ Living log of what this project is, how it's built, what worked, what
 didn't, and why. Written to double as source material for the school /
 business presentation deck.
 
+## Build 02 — simpler betting, real tabs
+
+Feedback after build 01: the bet builder read too much like a trading
+form (four sliders — leverage, target %, barrier %, plus a separate
+submit button), and the site was a single long scrolling page with
+anchor links instead of real navigation. Two changes:
+
+**1. Betting became one-tap, outcome-first.**
+`BetBuilder.tsx` no longer exposes raw sliders by default. Instead:
+amount is a row of dollar chips, risk is one of three plain-language
+presets (**Safe / Balanced / Bold** — see `BET_PRESETS` in
+`lib/types.ts`), and the three direction choices are themselves the
+submit buttons, each stating the actual outcome in plain language —
+*"Hits $64,700 first, before it drops to $62,480"* — instead of asking
+the user to interpret "target distance" and "barrier distance" as
+percentages. Picking an amount and a risk level, then tapping one
+outcome, places the bet in one motion. A short toast confirms what was
+just bet.
+
+This also fixed something the flat 1.8x payout in build 01 got wrong:
+every risk level paid the same regardless of how likely it was to hit.
+`Position` now carries its own `payoutMultiplier`, set from the chosen
+preset at bet time (1.3x Safe, 1.8x Balanced, 2.6x Bold), so a bolder
+bet actually pays more.
+
+**2. The site became real tabs.** Home, Trade, and Funded Accounts are
+now actual routes (`src/app/page.tsx`, `src/app/trade/page.tsx`,
+`src/app/funded/page.tsx`), not anchor-scrolled sections on one page.
+`Navbar.tsx` reads the current route with `usePathname` and underlines
+the active tab. `TradingProvider`, the navbar, and the footer all moved
+up into `layout.tsx` so every tab shares one wallet/balance/position
+state without re-mounting it per page — the Home page is now just a
+pitch with links into the other two tabs.
+
 ## 1. What this is
 
 Rocketed is a landing page + interactive demo for a **fast-paced,
@@ -130,10 +164,10 @@ is checked at the same 1Hz cadence the user sees the price move at.
 - No real payments/on-chain deposits — "Deposit" just adds to a
   client-side number.
 - No user accounts/auth.
-- Payout curve for a won bet is a flat 1.8x multiplier regardless of
-  how tight the target/barrier/leverage combination was — a real
-  version would price this properly (implied probability from
-  distance-to-barrier and time, like a real barrier option).
+- Payout is one of three fixed multipliers (1.3x / 1.8x / 2.6x, picked
+  by risk preset) rather than continuously priced — a real version
+  would price it off implied probability from distance-to-barrier and
+  time, like a real barrier option.
 - Single funded challenge at a time (no history of past challenge
   attempts).
 
@@ -141,8 +175,8 @@ is checked at the same 1Hz cadence the user sees the price move at.
 
 1. Real wallet connect (wagmi + RainbowKit) behind the existing
    `WalletMenu` UI — the dropdown shape shouldn't need to change.
-2. Proper options-pricing model for bet payouts instead of the flat
-   1.8x multiplier.
+2. Proper continuous options-pricing model for bet payouts instead of
+   the three fixed preset multipliers.
 3. Persist state (positions, challenge, balance) so it survives a
    refresh — likely a small backend or even just `localStorage` first.
 4. Replace the hand-rolled SVG chart with a real candlestick chart

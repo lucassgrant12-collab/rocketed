@@ -1,20 +1,40 @@
-import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
-import TradePanel from "@/components/TradePanel";
-import FundedPackages from "@/components/FundedPackages";
+import Link from "next/link";
 
 export default function Home() {
   return (
-    <div className="flex min-h-full flex-col">
-      <Navbar />
-      <main className="flex-1">
-        <Hero />
-        <TradePanel />
-        <FundedPackages />
-      </main>
-      <footer className="border-t border-line px-4 py-6 text-center text-[10px] uppercase tracking-widest text-fg-dim sm:px-6">
-        Rocketed — demo build, mock funds only, no real money at risk.
-      </footer>
-    </div>
+    <>
+      <Hero />
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Link
+            href="/trade"
+            className="border border-line bg-bg-panel p-6 transition-colors hover:border-brand"
+          >
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-fg-dim">
+              Tab 01
+            </p>
+            <p className="mb-2 text-lg font-bold">Trade</p>
+            <p className="text-sm text-fg-dim">
+              Live BTC / ETH / SOL prices. Pick a risk level, tap an outcome,
+              watch it resolve in real time.
+            </p>
+          </Link>
+          <Link
+            href="/funded"
+            className="border border-line bg-bg-panel p-6 transition-colors hover:border-brand"
+          >
+            <p className="mb-2 text-[10px] uppercase tracking-widest text-fg-dim">
+              Tab 02
+            </p>
+            <p className="mb-2 text-lg font-bold">Funded Accounts</p>
+            <p className="text-sm text-fg-dim">
+              Deposit a small entry fee, trade a much larger funded balance,
+              hit the profit target, unlock the reward.
+            </p>
+          </Link>
+        </div>
+      </div>
+    </>
   );
 }

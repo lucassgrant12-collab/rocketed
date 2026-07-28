@@ -19,12 +19,53 @@ export interface Position {
   entryPrice: number;
   targetPrice: number;
   barrierPrice: number;
+  payoutMultiplier: number;
   openedAt: number;
   status: PositionStatus;
   closedAt?: number;
   closePrice?: number;
   pnl: number;
 }
+
+export interface BetPreset {
+  id: string;
+  label: string;
+  blurb: string;
+  targetPct: number;
+  barrierPct: number;
+  leverage: number;
+  payoutMultiplier: number;
+}
+
+export const BET_PRESETS: BetPreset[] = [
+  {
+    id: "safe",
+    label: "Safe",
+    blurb: "Small move, wide safety net",
+    targetPct: 1,
+    barrierPct: 3,
+    leverage: 5,
+    payoutMultiplier: 1.3,
+  },
+  {
+    id: "balanced",
+    label: "Balanced",
+    blurb: "Even odds",
+    targetPct: 2,
+    barrierPct: 1.5,
+    leverage: 10,
+    payoutMultiplier: 1.8,
+  },
+  {
+    id: "bold",
+    label: "Bold",
+    blurb: "Big move, tight barrier",
+    targetPct: 4,
+    barrierPct: 1,
+    leverage: 20,
+    payoutMultiplier: 2.6,
+  },
+];
 
 export interface FundedTier {
   id: string;
