@@ -4,6 +4,58 @@ Living log of what this project is, how it's built, what worked, what
 didn't, and why. Written to double as source material for the school /
 business presentation deck.
 
+## Build 04 — full manual pricing, decay, and a real accounting bug
+
+Feedback after build 03: three risk presets weren't "full control" —
+the request was to type in the actual prices being bet on, exactly
+like the original pitch ("$100 that it hits 66k before it drops below
+65k"). Plus two new rules to keep the game honest: payout should decay
+the longer a bet sits open, and cashing out early shouldn't be a way
+to bank a profit that hasn't actually happened yet.
+
+**Custom prices, typed by hand.** `BetBuilder` now has a Quick/Custom
+toggle. Custom mode is two plain number inputs — the target price and
+the barrier price — with direction inferred automatically from which
+one sits above the current price and which sits below (no separate
+up/down picker needed). `TradingContext.previewCustomBet` and
+`placeCustomBet` reuse the exact same `priceBarrier` pricing core a
+preset quote uses (pulled out of `quoteBet` in `lib/pricing.ts`
+specifically so both paths share one source of truth), so a typed bet
+gets the same fair, house-edged odds a preset does. The barrier is
+capped at $1,000 from the live price — otherwise someone could type a
+barrier so far away the bet is effectively risk-free, which breaks the
+whole pricing model's premise.
+
+**Payout decays while a position sits open.** `decayedPayoutMultiplier`
+halves the *profit portion* of the locked-in payout every 45 seconds
+(floored so it never fully disappears), based on how long the position
+has been open when it actually hits. `PositionsList` shows this live
+for every open position — "if it hits now: 1.91x" ticking down in real
+time — which is a direct, honest incentive against just parking a bet
+and walking away.
+
+**Cash-out capped at zero.** The whole point of leverage was supposed
+to be the cash-out-now value (Build 03), but nothing stopped someone
+from cashing out *into a profit* the moment price moved slightly in
+their favor — defeating "you have to actually hit the target to profit."
+Fixed by capping both the displayed floating value and the real
+`cashOut()` payout at a maximum of 0: cashing out can return your stake
+or realize a partial loss, never a gain.
+
+**A real bug, caught by testing the exact numbers.** While verifying
+the above, a $25 bet debited $50 from the wallet. Cause:
+`debitActiveBalance`/`creditActiveBalance` called `setWalletBalance`
+*inside* a `setChallenge` updater function. React can invoke an
+updater function more than once per commit in Strict Mode specifically
+to catch impure updaters — and since the nested `setWalletBalance` call
+was a side effect of that updater, it fired twice too. Fixed by reading
+the active challenge from a ref synchronously and dispatching exactly
+one `setState` call per function, instead of nesting one inside
+another's updater. Worth calling out in the presentation: this is
+exactly the class of bug that "it worked when I tried it" doesn't
+catch, and a scripted browser test that checks exact dollar amounts
+(not just "no console errors") did.
+
 ## Build 03 — real odds pricing, and what leverage is actually for
 
 Feedback after build 02: the fixed 1.3x/1.8x/2.6x payouts weren't

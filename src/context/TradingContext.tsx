@@ -9,7 +9,14 @@ import {
   useState,
 } from "react";
 import { fetchSpotPrices } from "@/lib/coingecko";
-import { Quote, quoteBet, realizedSigmaPct } from "@/lib/pricing";
+import {
+  decayedPayoutMultiplier,
+  MAX_CUSTOM_BARRIER_DISTANCE,
+  priceBarrier,
+  Quote,
+  quoteBet,
+  realizedSigmaPct,
+} from "@/lib/pricing";
 import {
   ActiveChallenge,
   AssetId,
@@ -33,6 +40,21 @@ interface PlaceBetArgs {
   presetId: string;
 }
 
+interface PlaceCustomBetArgs {
+  asset: AssetId;
+  amount: number;
+  targetPrice: number;
+  barrierPrice: number;
+  leverage: number;
+}
+
+export interface CustomPreview {
+  side: "up" | "down";
+  entryPrice: number;
+  winProbability: number;
+  payoutMultiplier: number;
+}
+
 interface TradingState {
   connected: boolean;
   walletBalance: number;
@@ -43,8 +65,19 @@ interface TradingState {
   connect: () => void;
   disconnect: () => void;
   deposit: (amount: number) => void;
+  /** Debits whichever balance is currently active (funded challenge, else
+   * the demo wallet). Shared by every feature that takes a stake. */
+  debitActiveBalance: (amount: number) => void;
+  /** Credits whichever balance is currently active, and re-checks the
+   * active challenge's pass/fail thresholds. Shared by every feature that
+   * pays out -- perps positions, cash-outs, and pool payouts alike. */
+  creditActiveBalance: (amount: number) => void;
   getQuote: (asset: AssetId, side: "up" | "down", presetId: string) => Quote | null;
   placeBet: (args: PlaceBetArgs) => Position[] | null;
+  /** Live odds preview for a fully custom, typed-in target/barrier price
+   * pair -- null while the two prices don't straddle the current price. */
+  previewCustomBet: (asset: AssetId, targetPrice: number, barrierPrice: number) => CustomPreview | null;
+  placeCustomBet: (args: PlaceCustomBetArgs) => Position[] | null;
   cashOut: (positionId: string) => void;
   startChallenge: (tierId: string) => void;
   resetChallenge: () => void;
@@ -68,15 +101,22 @@ function resolvePosition(pos: Position, price: number): Position {
     pnl = -pos.amount;
   } else if (hitTarget) {
     status = "won";
-    pnl = pos.amount * pos.payoutMultiplier;
+    const effectiveMultiplier = decayedPayoutMultiplier(
+      pos.payoutMultiplier,
+      Date.now() - pos.openedAt
+    );
+    pnl = pos.amount * effectiveMultiplier;
   } else {
     // Cash-out-now value: this is what leverage actually drives -- how hard
     // the exit-early value swings per % moved, independent of the fixed
-    // target/barrier payout locked in at open time.
+    // target/barrier payout locked in at open time. Capped at 0: cashing
+    // out can only ever return your stake, never a profit -- only actually
+    // hitting the target does that.
     const move = (price - pos.entryPrice) / pos.entryPrice;
     const directional = pos.side === "up" ? move : -move;
     pnl = pos.amount * directional * pos.leverage;
     pnl = Math.max(pnl, -pos.amount);
+    pnl = Math.min(pnl, 0);
   }
 
   return { ...pos, status, pnl, closedAt: status !== "open" ? Date.now() : undefined, closePrice: status !== "open" ? price : undefined };
@@ -94,6 +134,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     pricesRef.current = prices;
   }, [prices]);
+
+  const challengeRef = useRef(challenge);
+  useEffect(() => {
+    challengeRef.current = challenge;
+  }, [challenge]);
 
   // Rolling per-asset price window used to price bets off realized
   // volatility instead of a static assumption. Kept in a ref (not state) --
@@ -152,6 +197,46 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(id);
   }, [anchorPrices]);
 
+  const connect = useCallback(() => setConnected(true), []);
+  const disconnect = useCallback(() => setConnected(false), []);
+  const deposit = useCallback((amount: number) => {
+    setWalletBalance((b) => b + amount);
+  }, []);
+
+  // These read challengeRef (not the `challenge` state variable) and each
+  // call exactly one setState. Nesting a setWalletBalance call inside a
+  // setChallenge updater looks convenient, but React (in Strict Mode, at
+  // least) can invoke an updater function more than once per commit -- and
+  // since that side effect would then fire more than once too, a single
+  // bet was silently getting debited twice. Reading a ref synchronously and
+  // dispatching one clean update avoids the whole class of bug.
+  const debitActiveBalance = useCallback((amount: number) => {
+    const active = challengeRef.current;
+    if (active && active.status === "active") {
+      setChallenge((prev) => (prev ? { ...prev, balance: prev.balance - amount } : prev));
+    } else {
+      setWalletBalance((b) => b - amount);
+    }
+  }, []);
+
+  const creditActiveBalance = useCallback((amount: number) => {
+    const active = challengeRef.current;
+    if (active && active.status === "active") {
+      setChallenge((prev) => {
+        if (!prev) return prev;
+        const newBalance = prev.balance + amount;
+        const tier = FUNDED_TIERS.find((t) => t.id === prev.tierId)!;
+        const profit = newBalance - tier.fundSize;
+        let status: ActiveChallenge["status"] = "active";
+        if (profit >= tier.profitTarget) status = "passed";
+        else if (profit <= -tier.maxDrawdown) status = "failed";
+        return { ...prev, balance: newBalance, status };
+      });
+    } else {
+      setWalletBalance((b) => b + amount);
+    }
+  }, []);
+
   // Whenever positions close, settle their pnl into either the demo wallet
   // or the active funded challenge balance -- this is the link between the
   // trading panel and the funded-account feature.
@@ -160,28 +245,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     positions.forEach((p) => {
       if (p.status === "open" || settledIds.current.has(p.id)) return;
       settledIds.current.add(p.id);
-
-      setChallenge((prevChallenge) => {
-        if (!prevChallenge || prevChallenge.status !== "active") {
-          setWalletBalance((b) => b + p.pnl);
-          return prevChallenge;
-        }
-        const newBalance = prevChallenge.balance + p.pnl;
-        const tier = FUNDED_TIERS.find((t) => t.id === prevChallenge.tierId)!;
-        const profit = newBalance - tier.fundSize;
-        let status: ActiveChallenge["status"] = "active";
-        if (profit >= tier.profitTarget) status = "passed";
-        else if (profit <= -tier.maxDrawdown) status = "failed";
-        return { ...prevChallenge, balance: newBalance, status };
-      });
+      creditActiveBalance(p.pnl);
     });
-  }, [positions]);
-
-  const connect = useCallback(() => setConnected(true), []);
-  const disconnect = useCallback(() => setConnected(false), []);
-  const deposit = useCallback((amount: number) => {
-    setWalletBalance((b) => b + amount);
-  }, []);
+  }, [positions, creditActiveBalance]);
 
   const getQuote = useCallback(
     (asset: AssetId, side: "up" | "down", presetId: string): Quote | null => {
@@ -226,15 +292,56 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       };
     });
 
-    const totalCost = args.amount;
-    if (challenge && challenge.status === "active") {
-      setChallenge((c) => (c ? { ...c, balance: c.balance - totalCost } : c));
-    } else {
-      setWalletBalance((b) => b - totalCost);
-    }
+    debitActiveBalance(args.amount);
     setPositions((prev) => [...newPositions, ...prev]);
     return newPositions;
-  }, [challenge, getQuote]);
+  }, [getQuote, debitActiveBalance]);
+
+  // A custom bet has no preset at all: the user types the exact target and
+  // barrier prices, direction is inferred from which side of the current
+  // price each one falls on, and odds come straight out of the same
+  // gambler's-ruin pricing core a preset quote uses.
+  const previewCustomBet = useCallback(
+    (asset: AssetId, targetPrice: number, barrierPrice: number): CustomPreview | null => {
+      const price = pricesRef.current?.[asset];
+      if (!price || !targetPrice || !barrierPrice) return null;
+      const targetAbove = targetPrice > price;
+      const barrierAbove = barrierPrice > price;
+      if (targetAbove === barrierAbove) return null; // must straddle the current price
+      if (Math.abs(barrierPrice - price) > MAX_CUSTOM_BARRIER_DISTANCE) return null;
+
+      const side: "up" | "down" = targetAbove ? "up" : "down";
+      const { winProbability, payoutMultiplier } = priceBarrier(price, targetPrice, barrierPrice);
+      return { side, entryPrice: price, winProbability, payoutMultiplier };
+    },
+    []
+  );
+
+  const placeCustomBet = useCallback((args: PlaceCustomBetArgs) => {
+    const preview = previewCustomBet(args.asset, args.targetPrice, args.barrierPrice);
+    if (!preview) return null;
+
+    const position: Position = {
+      id: `${Date.now()}-custom-${Math.random().toString(36).slice(2, 8)}`,
+      asset: args.asset,
+      side: preview.side,
+      presetId: "custom",
+      amount: args.amount,
+      leverage: args.leverage,
+      entryPrice: preview.entryPrice,
+      targetPrice: args.targetPrice,
+      barrierPrice: args.barrierPrice,
+      payoutMultiplier: preview.payoutMultiplier,
+      winProbability: preview.winProbability,
+      openedAt: Date.now(),
+      status: "open",
+      pnl: 0,
+    };
+
+    debitActiveBalance(args.amount);
+    setPositions((prev) => [position, ...prev]);
+    return [position];
+  }, [previewCustomBet, debitActiveBalance]);
 
   const cashOut = useCallback((positionId: string) => {
     setPositions((prev) =>
@@ -244,7 +351,8 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         if (!price) return p;
         const move = (price - p.entryPrice) / p.entryPrice;
         const directional = p.side === "up" ? move : -move;
-        const pnl = Math.max(p.amount * directional * p.leverage, -p.amount);
+        let pnl = Math.max(p.amount * directional * p.leverage, -p.amount);
+        pnl = Math.min(pnl, 0);
         return {
           ...p,
           status: "cashed_out",
@@ -282,8 +390,12 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         deposit,
+        debitActiveBalance,
+        creditActiveBalance,
         getQuote,
         placeBet,
+        previewCustomBet,
+        placeCustomBet,
         cashOut,
         startChallenge,
         resetChallenge,

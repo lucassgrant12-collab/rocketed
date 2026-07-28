@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useTrading } from "@/context/TradingContext";
+import { decayedPayoutMultiplier } from "@/lib/pricing";
 import { ASSETS, BET_PRESETS, Position } from "@/lib/types";
 
 const STATUS_LABEL: Record<Position["status"], string> = {
@@ -13,6 +15,12 @@ const STATUS_LABEL: Record<Position["status"], string> = {
 
 export default function PositionsList() {
   const { positions, cashOut } = useTrading();
+  const [now, setNow] = useState(() => Date.now());
+
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, []);
 
   if (positions.length === 0) {
     return (
@@ -30,8 +38,7 @@ export default function PositionsList() {
       <div className="max-h-96 overflow-y-auto">
         {positions.map((p) => {
           const symbol = ASSETS.find((a) => a.id === p.asset)?.symbol ?? p.asset;
-          const presetLabel = BET_PRESETS.find((b) => b.id === p.presetId)?.label ?? p.presetId;
-          const pnlColor = p.pnl > 0 ? "text-up" : p.pnl < 0 ? "text-down" : "text-fg-dim";
+          const presetLabel = BET_PRESETS.find((b) => b.id === p.presetId)?.label ?? "Custom";
           const statusColor =
             p.status === "won"
               ? "text-up"
@@ -40,6 +47,13 @@ export default function PositionsList() {
               : p.status === "cashed_out"
               ? "text-brand"
               : "text-fg-dim";
+
+          const liveMultiplier =
+            p.status === "open"
+              ? decayedPayoutMultiplier(p.payoutMultiplier, now - p.openedAt)
+              : null;
+          const achievedMultiplier = p.status === "won" ? p.pnl / p.amount : null;
+
           return (
             <div
               key={p.id}
@@ -51,23 +65,44 @@ export default function PositionsList() {
                     {p.side === "up" ? "▲" : "▼"} {symbol}
                   </span>
                   <span className="text-fg-dim">{presetLabel}</span>
-                  <span className="text-fg-dim">pays {p.payoutMultiplier.toFixed(2)}x</span>
+                  {p.status === "open" && liveMultiplier !== null && (
+                    <span className="text-brand">
+                      if it hits now: {liveMultiplier.toFixed(2)}x
+                    </span>
+                  )}
+                  {p.status === "won" && achievedMultiplier !== null && (
+                    <span className="text-up">paid {achievedMultiplier.toFixed(2)}x</span>
+                  )}
                 </div>
                 <p className="text-[10px] text-fg-dim">
                   entry ${p.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   {" · "}target ${p.targetPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                   {" · "}barrier ${p.barrierPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  {p.status === "open" && " · payout decays the longer this stays open"}
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="text-right">
-                  <p className={`font-mono text-sm ${pnlColor}`}>
-                    {p.pnl >= 0 ? "+" : ""}
-                    {p.pnl.toFixed(2)}
-                  </p>
-                  <p className={`text-[10px] uppercase tracking-wider ${statusColor}`}>
-                    {STATUS_LABEL[p.status]}
-                  </p>
+                  {p.status === "open" ? (
+                    <>
+                      <p className={`font-mono text-sm ${p.pnl < 0 ? "text-down" : "text-fg-dim"}`}>
+                        {p.pnl.toFixed(2)}
+                      </p>
+                      <p className="text-[10px] uppercase tracking-wider text-fg-dim">
+                        cash out value
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className={`font-mono text-sm ${p.pnl > 0 ? "text-up" : p.pnl < 0 ? "text-down" : "text-fg-dim"}`}>
+                        {p.pnl >= 0 ? "+" : ""}
+                        {p.pnl.toFixed(2)}
+                      </p>
+                      <p className={`text-[10px] uppercase tracking-wider ${statusColor}`}>
+                        {STATUS_LABEL[p.status]}
+                      </p>
+                    </>
+                  )}
                 </div>
                 {p.status === "open" && (
                   <button
