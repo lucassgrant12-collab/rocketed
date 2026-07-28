@@ -8,18 +8,25 @@ export const ASSETS: { id: AssetId; symbol: string; name: string }[] = [
 
 export type Direction = "up" | "down" | "both";
 
-export type PositionStatus = "open" | "won" | "knocked_out" | "expired";
+export type PositionStatus =
+  | "open"
+  | "won"
+  | "knocked_out"
+  | "cashed_out"
+  | "expired";
 
 export interface Position {
   id: string;
   asset: AssetId;
   side: "up" | "down";
+  presetId: string;
   amount: number;
   leverage: number;
   entryPrice: number;
   targetPrice: number;
   barrierPrice: number;
   payoutMultiplier: number;
+  winProbability: number;
   openedAt: number;
   status: PositionStatus;
   closedAt?: number;
@@ -31,10 +38,11 @@ export interface BetPreset {
   id: string;
   label: string;
   blurb: string;
-  targetPct: number;
-  barrierPct: number;
+  /** Target/barrier distance, as a multiple of realized volatility. */
+  targetVolMult: number;
+  barrierVolMult: number;
+  /** Scales how fast the cash-out-now value moves while the bet is open. */
   leverage: number;
-  payoutMultiplier: number;
 }
 
 export const BET_PRESETS: BetPreset[] = [
@@ -42,28 +50,25 @@ export const BET_PRESETS: BetPreset[] = [
     id: "safe",
     label: "Safe",
     blurb: "Small move, wide safety net",
-    targetPct: 1,
-    barrierPct: 3,
-    leverage: 5,
-    payoutMultiplier: 1.3,
+    targetVolMult: 0.6,
+    barrierVolMult: 3.5,
+    leverage: 4,
   },
   {
     id: "balanced",
     label: "Balanced",
     blurb: "Even odds",
-    targetPct: 2,
-    barrierPct: 1.5,
+    targetVolMult: 1.5,
+    barrierVolMult: 1.5,
     leverage: 10,
-    payoutMultiplier: 1.8,
   },
   {
     id: "bold",
     label: "Bold",
     blurb: "Big move, tight barrier",
-    targetPct: 4,
-    barrierPct: 1,
-    leverage: 20,
-    payoutMultiplier: 2.6,
+    targetVolMult: 3.5,
+    barrierVolMult: 0.6,
+    leverage: 25,
   },
 ];
 

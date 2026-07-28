@@ -4,6 +4,47 @@ Living log of what this project is, how it's built, what worked, what
 didn't, and why. Written to double as source material for the school /
 business presentation deck.
 
+## Build 03 — real odds pricing, and what leverage is actually for
+
+Feedback after build 02: the fixed 1.3x/1.8x/2.6x payouts weren't
+actually priced off anything, and leverage didn't do anything a user
+could feel — it only scaled a floating number nobody could act on.
+Two changes, both in a new `src/lib/pricing.ts` module.
+
+**1. Bets are now priced with real first-passage probability.**
+Every preset is now defined as a *multiple of realized volatility*
+(`targetVolMult` / `barrierVolMult` in `lib/types.ts`) rather than a
+fixed percent. `TradingContext` keeps a rolling window of live prices
+per asset and computes realized volatility from it
+(`realizedSigmaPct`) — actual stdev of log returns, scaled to a
+5-minute horizon, not a static assumption. That volatility sets how
+far away the target and barrier actually are for the chosen risk
+level, so "Bold" means something different in a calm market than a
+volatile one.
+
+The payout itself comes from the classic gambler's-ruin result:
+treating log-price as a driftless martingale, the probability of
+hitting one boundary before another depends only on log-distance to
+each one (`firstPassageWinProb`). Fair odds are `1 / probability`; the
+platform takes a flat 5% edge off that. A safer bet (wide barrier,
+close target) has high win probability and a low payout; a bolder bet
+is the reverse — and the number is computed live and shown before you
+ever tap a bet, not hardcoded per preset.
+
+**2. Leverage got an actual job: cashing out early.**
+The fixed multiplier above is *only* what you get if the bet plays out
+to target or barrier. It was never what leverage should have been
+pricing. Leverage now exclusively scales the **cash-out-now** value —
+the position's floating pnl while it's still open
+(`amount * % moved toward target * leverage`, capped at losing the
+stake). `TradingContext.cashOut()` locks that value in immediately
+instead of waiting for target/barrier, and it settles through the
+exact same settlement path a win or knockout does — so it plays fair
+with an active funded challenge too. This is the resolution to a
+question that came up mid-build: fixed-outcome payout is a *probability*
+question, cash-out value is a *how far has it actually moved* question,
+and conflating them under one "leverage" slider was the original bug.
+
 ## Build 02 — simpler betting, real tabs
 
 Feedback after build 01: the bet builder read too much like a trading
@@ -164,10 +205,12 @@ is checked at the same 1Hz cadence the user sees the price move at.
 - No real payments/on-chain deposits — "Deposit" just adds to a
   client-side number.
 - No user accounts/auth.
-- Payout is one of three fixed multipliers (1.3x / 1.8x / 2.6x, picked
-  by risk preset) rather than continuously priced — a real version
-  would price it off implied probability from distance-to-barrier and
-  time, like a real barrier option.
+- The pricing model (`lib/pricing.ts`) assumes zero drift and treats
+  the live tick feed's own jitter as part of "realized volatility" —
+  honest for a demo, but a real version would separate true market
+  volatility from the animation layer described in Build 01 §5, and
+  likely add a bounded time horizon so volatility affects win
+  probability directly, not just where the barriers get placed.
 - Single funded challenge at a time (no history of past challenge
   attempts).
 
@@ -175,8 +218,9 @@ is checked at the same 1Hz cadence the user sees the price move at.
 
 1. Real wallet connect (wagmi + RainbowKit) behind the existing
    `WalletMenu` UI — the dropdown shape shouldn't need to change.
-2. Proper continuous options-pricing model for bet payouts instead of
-   the three fixed preset multipliers.
+2. Give bets a bounded round length (e.g. 30s/2min/10min) so the
+   pricing model can use finite-horizon first-passage probability
+   instead of the current infinite-horizon assumption.
 3. Persist state (positions, challenge, balance) so it survives a
    refresh — likely a small backend or even just `localStorage` first.
 4. Replace the hand-rolled SVG chart with a real candlestick chart

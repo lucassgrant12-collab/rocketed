@@ -9,6 +9,7 @@ import {
   useState,
 } from "react";
 import { fetchSpotPrices } from "@/lib/coingecko";
+import { Quote, quoteBet, realizedSigmaPct } from "@/lib/pricing";
 import {
   ActiveChallenge,
   AssetId,
@@ -23,6 +24,7 @@ const STARTING_BALANCE = 10000;
 const REAL_PRICE_POLL_MS = 15000;
 const TICK_MS = 1000;
 const JITTER_VOL = 0.0006; // per-tick volatility used to animate price between real fetches
+const HISTORY_LIMIT = 400;
 
 interface PlaceBetArgs {
   asset: AssetId;
@@ -41,7 +43,9 @@ interface TradingState {
   connect: () => void;
   disconnect: () => void;
   deposit: (amount: number) => void;
+  getQuote: (asset: AssetId, side: "up" | "down", presetId: string) => Quote | null;
   placeBet: (args: PlaceBetArgs) => Position[] | null;
+  cashOut: (positionId: string) => void;
   startChallenge: (tierId: string) => void;
   resetChallenge: () => void;
 }
@@ -66,6 +70,9 @@ function resolvePosition(pos: Position, price: number): Position {
     status = "won";
     pnl = pos.amount * pos.payoutMultiplier;
   } else {
+    // Cash-out-now value: this is what leverage actually drives -- how hard
+    // the exit-early value swings per % moved, independent of the fixed
+    // target/barrier payout locked in at open time.
     const move = (price - pos.entryPrice) / pos.entryPrice;
     const directional = pos.side === "up" ? move : -move;
     pnl = pos.amount * directional * pos.leverage;
@@ -87,6 +94,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     pricesRef.current = prices;
   }, [prices]);
+
+  // Rolling per-asset price window used to price bets off realized
+  // volatility instead of a static assumption. Kept in a ref (not state) --
+  // it's read synchronously by pricing, never rendered directly.
+  const historyRef = useRef<Partial<Record<AssetId, number[]>>>({});
 
   // Poll real prices from CoinGecko; this is the "ground truth" anchor.
   useEffect(() => {
@@ -123,6 +135,11 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
           const reversion = (anchor - current) * 0.08;
           const noise = current * JITTER_VOL * (Math.random() * 2 - 1);
           next[asset] = Math.max(0.01, current + reversion + noise);
+
+          const hist = historyRef.current[asset] ?? [];
+          hist.push(next[asset]);
+          if (hist.length > HISTORY_LIMIT) hist.shift();
+          historyRef.current[asset] = hist;
         });
 
         setPositions((posPrev) =>
@@ -166,6 +183,17 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     setWalletBalance((b) => b + amount);
   }, []);
 
+  const getQuote = useCallback(
+    (asset: AssetId, side: "up" | "down", presetId: string): Quote | null => {
+      const price = pricesRef.current?.[asset];
+      const preset = BET_PRESETS.find((p) => p.id === presetId);
+      if (!price || !preset) return null;
+      const sigmaPct = realizedSigmaPct(historyRef.current[asset] ?? []);
+      return quoteBet(price, side, preset, sigmaPct);
+    },
+    []
+  );
+
   const placeBet = useCallback((args: PlaceBetArgs) => {
     const price = pricesRef.current?.[args.asset];
     const preset = BET_PRESETS.find((p) => p.id === args.presetId);
@@ -178,25 +206,20 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
       args.direction === "both" ? args.amount / 2 : args.amount;
 
     const newPositions: Position[] = sides.map((side) => {
-      const targetPrice =
-        side === "up"
-          ? price * (1 + preset.targetPct / 100)
-          : price * (1 - preset.targetPct / 100);
-      const barrierPrice =
-        side === "up"
-          ? price * (1 - preset.barrierPct / 100)
-          : price * (1 + preset.barrierPct / 100);
+      const quote = getQuote(args.asset, side, args.presetId)!;
 
       return {
         id: `${Date.now()}-${side}-${Math.random().toString(36).slice(2, 8)}`,
         asset: args.asset,
         side,
+        presetId: args.presetId,
         amount: perSideAmount,
         leverage: preset.leverage,
         entryPrice: price,
-        targetPrice,
-        barrierPrice,
-        payoutMultiplier: preset.payoutMultiplier,
+        targetPrice: quote.targetPrice,
+        barrierPrice: quote.barrierPrice,
+        payoutMultiplier: quote.payoutMultiplier,
+        winProbability: quote.winProbability,
         openedAt: Date.now(),
         status: "open",
         pnl: 0,
@@ -211,7 +234,27 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
     }
     setPositions((prev) => [...newPositions, ...prev]);
     return newPositions;
-  }, [challenge]);
+  }, [challenge, getQuote]);
+
+  const cashOut = useCallback((positionId: string) => {
+    setPositions((prev) =>
+      prev.map((p) => {
+        if (p.id !== positionId || p.status !== "open") return p;
+        const price = pricesRef.current?.[p.asset];
+        if (!price) return p;
+        const move = (price - p.entryPrice) / p.entryPrice;
+        const directional = p.side === "up" ? move : -move;
+        const pnl = Math.max(p.amount * directional * p.leverage, -p.amount);
+        return {
+          ...p,
+          status: "cashed_out",
+          pnl,
+          closedAt: Date.now(),
+          closePrice: price,
+        };
+      })
+    );
+  }, []);
 
   const startChallenge = useCallback((tierId: string) => {
     const tier = FUNDED_TIERS.find((t) => t.id === tierId);
@@ -239,7 +282,9 @@ export function TradingProvider({ children }: { children: React.ReactNode }) {
         connect,
         disconnect,
         deposit,
+        getQuote,
         placeBet,
+        cashOut,
         startChallenge,
         resetChallenge,
       }}

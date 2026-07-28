@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useTrading } from "@/context/TradingContext";
 import { AssetId, BET_PRESETS, Position } from "@/lib/types";
 
@@ -13,26 +13,17 @@ export default function BetBuilder({
   asset: AssetId;
   onPlaced: (positions: Position[]) => void;
 }) {
-  const { prices, priceReady, placeBet, connected, walletBalance, challenge } =
+  const { priceReady, getQuote, placeBet, connected, walletBalance, challenge } =
     useTrading();
   const [amount, setAmount] = useState(25);
   const [customAmount, setCustomAmount] = useState("");
   const [presetId, setPresetId] = useState("balanced");
 
-  const price = priceReady ? prices[asset] : undefined;
-  const preset = BET_PRESETS.find((p) => p.id === presetId)!;
   const availableBalance = challenge?.status === "active" ? challenge.balance : walletBalance;
-  const canBet = connected && !!price && amount > 0 && amount <= availableBalance;
+  const canBet = connected && priceReady && amount > 0 && amount <= availableBalance;
 
-  const outcomes = useMemo(() => {
-    if (!price) return null;
-    return {
-      upTarget: price * (1 + preset.targetPct / 100),
-      upBarrier: price * (1 - preset.barrierPct / 100),
-      downTarget: price * (1 - preset.targetPct / 100),
-      downBarrier: price * (1 + preset.barrierPct / 100),
-    };
-  }, [price, preset]);
+  const upQuote = priceReady ? getQuote(asset, "up", presetId) : null;
+  const downQuote = priceReady ? getQuote(asset, "down", presetId) : null;
 
   function fmt(n: number) {
     return `$${n.toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
@@ -83,26 +74,29 @@ export default function BetBuilder({
       </div>
 
       <p className="mb-1 text-[10px] uppercase tracking-widest text-fg-dim">
-        Risk level
+        Risk level · payout updates live with volatility
       </p>
       <div className="mb-4 grid grid-cols-3 gap-1.5">
-        {BET_PRESETS.map((p) => (
-          <button
-            key={p.id}
-            onClick={() => setPresetId(p.id)}
-            className={`border p-2 text-left transition-colors ${
-              presetId === p.id
-                ? "border-brand bg-bg-panel-2"
-                : "border-line hover:border-fg"
-            }`}
-          >
-            <p className="text-xs font-semibold">{p.label}</p>
-            <p className="text-[10px] text-fg-dim">{p.blurb}</p>
-            <p className="mt-1 font-mono text-[11px] text-brand">
-              pays {p.payoutMultiplier}x
-            </p>
-          </button>
-        ))}
+        {BET_PRESETS.map((p) => {
+          const quote = priceReady ? getQuote(asset, "up", p.id) : null;
+          return (
+            <button
+              key={p.id}
+              onClick={() => setPresetId(p.id)}
+              className={`border p-2 text-left transition-colors ${
+                presetId === p.id
+                  ? "border-brand bg-bg-panel-2"
+                  : "border-line hover:border-fg"
+              }`}
+            >
+              <p className="text-xs font-semibold">{p.label}</p>
+              <p className="text-[10px] text-fg-dim">{p.blurb}</p>
+              <p className="mt-1 font-mono text-[11px] text-brand">
+                {quote ? `~${quote.payoutMultiplier.toFixed(2)}x` : "..."}
+              </p>
+            </button>
+          );
+        })}
       </div>
 
       <p className="mb-1 text-[10px] uppercase tracking-widest text-fg-dim">
@@ -114,11 +108,17 @@ export default function BetBuilder({
           disabled={!canBet}
           className="border border-up p-3 text-left transition-colors hover:bg-up/10 disabled:cursor-not-allowed disabled:border-line disabled:hover:bg-transparent"
         >
-          <p className="font-mono text-sm text-up">
-            ▲ Hits {outcomes ? fmt(outcomes.upTarget) : "..."} first
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-sm text-up">
+              ▲ Hits {upQuote ? fmt(upQuote.targetPrice) : "..."} first
+            </p>
+            <p className="font-mono text-xs text-up">
+              {upQuote ? `${upQuote.payoutMultiplier.toFixed(2)}x` : ""}
+            </p>
+          </div>
           <p className="text-[11px] text-fg-dim">
-            before it drops to {outcomes ? fmt(outcomes.upBarrier) : "..."}
+            before it drops to {upQuote ? fmt(upQuote.barrierPrice) : "..."}
+            {upQuote ? ` · ${Math.round(upQuote.winProbability * 100)}% odds` : ""}
           </p>
         </button>
 
@@ -127,11 +127,17 @@ export default function BetBuilder({
           disabled={!canBet}
           className="border border-down p-3 text-left transition-colors hover:bg-down/10 disabled:cursor-not-allowed disabled:border-line disabled:hover:bg-transparent"
         >
-          <p className="font-mono text-sm text-down">
-            ▼ Hits {outcomes ? fmt(outcomes.downTarget) : "..."} first
-          </p>
+          <div className="flex items-center justify-between">
+            <p className="font-mono text-sm text-down">
+              ▼ Hits {downQuote ? fmt(downQuote.targetPrice) : "..."} first
+            </p>
+            <p className="font-mono text-xs text-down">
+              {downQuote ? `${downQuote.payoutMultiplier.toFixed(2)}x` : ""}
+            </p>
+          </div>
           <p className="text-[11px] text-fg-dim">
-            before it rises to {outcomes ? fmt(outcomes.downBarrier) : "..."}
+            before it rises to {downQuote ? fmt(downQuote.barrierPrice) : "..."}
+            {downQuote ? ` · ${Math.round(downQuote.winProbability * 100)}% odds` : ""}
           </p>
         </button>
 
@@ -147,13 +153,19 @@ export default function BetBuilder({
         </button>
       </div>
 
+      <p className="mt-3 text-[10px] leading-relaxed text-fg-dim">
+        Odds and payout are priced live off recent volatility, then locked in
+        the moment you bet. You can also cash out early from an open position
+        for its current value — see the positions list.
+      </p>
+
       {!connected && (
-        <p className="mt-3 text-center text-[11px] text-fg-dim">
+        <p className="mt-2 text-center text-[11px] text-fg-dim">
           Connect a wallet to bet
         </p>
       )}
       {connected && amount > availableBalance && (
-        <p className="mt-3 text-center text-[11px] text-down">
+        <p className="mt-2 text-center text-[11px] text-down">
           Not enough balance for that bet size
         </p>
       )}

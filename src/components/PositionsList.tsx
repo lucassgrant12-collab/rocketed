@@ -1,17 +1,18 @@
 "use client";
 
 import { useTrading } from "@/context/TradingContext";
-import { ASSETS, Position } from "@/lib/types";
+import { ASSETS, BET_PRESETS, Position } from "@/lib/types";
 
 const STATUS_LABEL: Record<Position["status"], string> = {
   open: "OPEN",
   won: "WON",
   knocked_out: "KNOCKED OUT",
+  cashed_out: "CASHED OUT",
   expired: "EXPIRED",
 };
 
 export default function PositionsList() {
-  const { positions } = useTrading();
+  const { positions, cashOut } = useTrading();
 
   if (positions.length === 0) {
     return (
@@ -26,15 +27,18 @@ export default function PositionsList() {
       <div className="border-b border-line px-4 py-2 text-[10px] uppercase tracking-widest text-fg-dim">
         Positions ({positions.length})
       </div>
-      <div className="max-h-80 overflow-y-auto">
+      <div className="max-h-96 overflow-y-auto">
         {positions.map((p) => {
           const symbol = ASSETS.find((a) => a.id === p.asset)?.symbol ?? p.asset;
+          const presetLabel = BET_PRESETS.find((b) => b.id === p.presetId)?.label ?? p.presetId;
           const pnlColor = p.pnl > 0 ? "text-up" : p.pnl < 0 ? "text-down" : "text-fg-dim";
           const statusColor =
             p.status === "won"
               ? "text-up"
               : p.status === "knocked_out"
               ? "text-down"
+              : p.status === "cashed_out"
+              ? "text-brand"
               : "text-fg-dim";
           return (
             <div
@@ -46,7 +50,8 @@ export default function PositionsList() {
                   <span className={p.side === "up" ? "text-up" : "text-down"}>
                     {p.side === "up" ? "▲" : "▼"} {symbol}
                   </span>
-                  <span className="text-fg-dim">{p.leverage}x</span>
+                  <span className="text-fg-dim">{presetLabel}</span>
+                  <span className="text-fg-dim">pays {p.payoutMultiplier.toFixed(2)}x</span>
                 </div>
                 <p className="text-[10px] text-fg-dim">
                   entry ${p.entryPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
@@ -54,14 +59,24 @@ export default function PositionsList() {
                   {" · "}barrier ${p.barrierPrice.toLocaleString(undefined, { maximumFractionDigits: 2 })}
                 </p>
               </div>
-              <div className="text-right">
-                <p className={`font-mono text-sm ${pnlColor}`}>
-                  {p.pnl >= 0 ? "+" : ""}
-                  {p.pnl.toFixed(2)}
-                </p>
-                <p className={`text-[10px] uppercase tracking-wider ${statusColor}`}>
-                  {STATUS_LABEL[p.status]}
-                </p>
+              <div className="flex items-center gap-3">
+                <div className="text-right">
+                  <p className={`font-mono text-sm ${pnlColor}`}>
+                    {p.pnl >= 0 ? "+" : ""}
+                    {p.pnl.toFixed(2)}
+                  </p>
+                  <p className={`text-[10px] uppercase tracking-wider ${statusColor}`}>
+                    {STATUS_LABEL[p.status]}
+                  </p>
+                </div>
+                {p.status === "open" && (
+                  <button
+                    onClick={() => cashOut(p.id)}
+                    className="border border-line px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-dim hover:border-brand hover:text-brand"
+                  >
+                    Cash out
+                  </button>
+                )}
               </div>
             </div>
           );
