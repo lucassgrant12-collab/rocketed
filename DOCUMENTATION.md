@@ -4,6 +4,49 @@ Living log of what this project is, how it's built, what worked, what
 didn't, and why. Written to double as source material for the school /
 business presentation deck.
 
+## Build 05 — System 1: pooled, crowd-priced betting (Pools tab)
+
+Everything through Build 04 is "System 2": you bet against the
+platform, and the platform prices the odds with real math. This build
+adds the other half of the original pitch — "System 1", a pooled /
+parimutuel mode where there's no house and no pricing engine at all.
+The crowd's own stakes set the odds.
+
+**How a round works** (`src/context/PoolContext.tsx`): every ~35
+seconds, BTC gets carved into 5 price bands sized off realized
+volatility (`generateBandEdges` in the new `lib/pools.ts` — reusing
+`realizedSigmaPct` from `lib/pricing.ts`, but for a completely
+different purpose: System 2 uses volatility to price fair odds against
+a house edge, System 1 only uses it to size the bands sensibly).
+Staking is open for 25s, locks for 5s while price keeps moving, then
+resolves: whichever band the price actually lands in wins, and that
+band's stakers split the entire pool (all bands combined) minus a flat
+5% platform fee, in proportion to their stake. A new round starts
+immediately after a 6-second results window.
+
+**Simulated crowd, real math.** There's no multiplayer backend in this
+build, so 6–14 bot stakes are scheduled at random times and random
+amounts each round, weighted toward the middle bands the way a real
+crowd would cluster (`weightedRandomBand`). This is scoped and
+documented deliberately, the same way the wallet-connect mockup and
+price-feed jitter were in earlier builds — the *pool accounting, fee,
+and live odds are real arithmetic*, only the other participants are
+synthetic for the demo.
+
+**Shared account, on purpose.** Staking a pool debits/credits through
+the exact same `debitActiveBalance` / `creditActiveBalance` functions
+System 2 and funded challenges use. A funded challenge active on the
+Trade tab is the same balance a Pool stake draws from. This is the
+"one account, two systems" pitch made literal: prediction markets
+(Polymarket etc.) have nailed the pooled/social mode, and solo barrier
+betting against real pricing is a much less crowded space — bundling
+both under one identity is a different product than either alone.
+
+**Scoped to BTC only for this build** — running multiple simultaneous
+per-asset rounds is a straightforward extension (the round state is
+already asset-agnostic in shape) but added UI complexity that wasn't
+worth it for a first pass.
+
 ## Build 04 — full manual pricing, decay, and a real accounting bug
 
 Feedback after build 03: three risk presets weren't "full control" —

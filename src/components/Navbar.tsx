@@ -7,6 +7,7 @@ import WalletMenu from "./WalletMenu";
 const TABS = [
   { href: "/", label: "Home" },
   { href: "/trade", label: "Trade" },
+  { href: "/pools", label: "Pools" },
   { href: "/funded", label: "Funded Accounts" },
 ];
 
