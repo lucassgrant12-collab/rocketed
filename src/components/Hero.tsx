@@ -24,7 +24,7 @@ export default function Hero() {
           </Link>
           <Link
             href="/funded"
-            className="border border-line px-5 py-2.5 text-sm font-bold uppercase tracking-wider hover:border-fg"
+            className="border border-line px-5 py-2.5 text-sm font-bold uppercase tracking-wider hover:border-up hover:text-up"
           >
             Get funded
           </Link>

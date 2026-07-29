@@ -35,7 +35,7 @@ export default function BetBuilder({
         <button
           onClick={() => setMode("quick")}
           className={`border py-2 text-xs font-mono uppercase tracking-wider transition-colors ${
-            mode === "quick" ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-fg"
+            mode === "quick" ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-up"
           }`}
         >
           Quick
@@ -43,7 +43,7 @@ export default function BetBuilder({
         <button
           onClick={() => setMode("custom")}
           className={`border py-2 text-xs font-mono uppercase tracking-wider transition-colors ${
-            mode === "custom" ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-fg"
+            mode === "custom" ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-up"
           }`}
         >
           Custom prices
@@ -64,7 +64,7 @@ export default function BetBuilder({
             className={`border py-2 text-xs font-mono transition-colors ${
               amount === amt && !customAmount
                 ? "border-brand bg-brand text-bg"
-                : "border-line text-fg-dim hover:border-fg"
+                : "border-line text-fg-dim hover:border-up"
             }`}
           >
             ${amt}
@@ -78,7 +78,7 @@ export default function BetBuilder({
             if (n > 0) setAmount(n);
           }}
           placeholder="other"
-          className="w-full border border-line bg-bg-panel-2 px-1 py-2 text-center text-xs font-mono outline-none focus:border-brand"
+          className="w-full border border-line bg-bg-panel-2 px-1 py-2 text-center text-xs font-mono outline-none focus:border-up"
         />
       </div>
 
@@ -141,7 +141,7 @@ function QuickBet({
               className={`border p-2 text-left transition-colors ${
                 presetId === p.id
                   ? "border-brand bg-bg-panel-2"
-                  : "border-line hover:border-fg"
+                  : "border-line hover:border-up"
               }`}
             >
               <p className="text-xs font-semibold">{p.label}</p>
@@ -270,7 +270,7 @@ function CustomBet({
             onChange={(e) => setTargetInput(e.target.value)}
             placeholder="e.g. 66000"
             inputMode="decimal"
-            className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-sm font-mono outline-none focus:border-brand"
+            className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-sm font-mono outline-none focus:border-up"
           />
         </div>
         <div>
@@ -282,7 +282,7 @@ function CustomBet({
             onChange={(e) => setBarrierInput(e.target.value)}
             placeholder="e.g. 65000"
             inputMode="decimal"
-            className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-sm font-mono outline-none focus:border-brand"
+            className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-sm font-mono outline-none focus:border-up"
           />
         </div>
       </div>
@@ -334,7 +334,7 @@ function CustomBet({
       <button
         onClick={bet}
         disabled={!canBet}
-        className="w-full border border-brand bg-brand py-2.5 text-sm font-bold uppercase tracking-wider text-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-line disabled:text-fg-dim"
+        className="w-full border border-brand bg-brand py-2.5 text-sm font-bold uppercase tracking-wider text-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-bg-panel-2 disabled:text-fg-dim"
       >
         {preview ? `Bet $${amount} on this outcome` : "Type both prices to see odds"}
       </button>

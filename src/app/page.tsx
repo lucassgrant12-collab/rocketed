@@ -9,7 +9,7 @@ export default function Home() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Link
             href="/trade"
-            className="border border-line bg-bg-panel p-6 transition-colors hover:border-brand"
+            className="border border-line bg-bg-panel p-6 transition-colors hover:border-up"
           >
             <p className="mb-2 text-[10px] uppercase tracking-widest text-fg-dim">
               Tab 01
@@ -22,7 +22,7 @@ export default function Home() {
           </Link>
           <Link
             href="/pools"
-            className="border border-line bg-bg-panel p-6 transition-colors hover:border-brand"
+            className="border border-line bg-bg-panel p-6 transition-colors hover:border-up"
           >
             <p className="mb-2 text-[10px] uppercase tracking-widest text-fg-dim">
               Tab 02
@@ -35,7 +35,7 @@ export default function Home() {
           </Link>
           <Link
             href="/funded"
-            className="border border-line bg-bg-panel p-6 transition-colors hover:border-brand"
+            className="border border-line bg-bg-panel p-6 transition-colors hover:border-up"
           >
             <p className="mb-2 text-[10px] uppercase tracking-widest text-fg-dim">
               Tab 03

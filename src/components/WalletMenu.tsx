@@ -28,10 +28,10 @@ export default function WalletMenu() {
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex items-center gap-2 border border-line bg-bg-panel px-3 py-2 text-xs font-mono uppercase tracking-wider text-fg hover:border-brand transition-colors"
+        className="flex items-center gap-2 border border-line bg-bg-panel px-3 py-2 text-xs font-mono uppercase tracking-wider text-fg hover:border-up transition-colors"
       >
         <span
-          className={`h-2 w-2 ${connected ? "bg-up" : "bg-fg-dim"}`}
+          className={`h-2 w-2 rounded-full ${connected ? "bg-up" : "bg-fg-dim"}`}
           aria-hidden
         />
         {connected ? `$${walletBalance.toFixed(2)}` : "Connect Wallet"}
@@ -52,7 +52,7 @@ export default function WalletMenu() {
                       connect();
                       setMode("menu");
                     }}
-                    className="flex w-full items-center justify-between border border-line bg-bg-panel-2 px-3 py-2 mb-1.5 text-left text-sm hover:border-brand transition-colors"
+                    className="flex w-full items-center justify-between border border-line bg-bg-panel-2 px-3 py-2 mb-1.5 text-left text-sm hover:border-up transition-colors"
                   >
                     <span>{name}</span>
                     <span className="text-[10px] text-fg-dim">mock</span>
@@ -82,7 +82,7 @@ export default function WalletMenu() {
               </button>
               <button
                 onClick={() => alert("Withdraw is a mockup in this build.")}
-                className="mb-1.5 w-full border border-line px-3 py-2 text-left text-sm hover:border-brand"
+                className="mb-1.5 w-full border border-line px-3 py-2 text-left text-sm hover:border-up"
               >
                 Withdraw
               </button>
@@ -117,7 +117,7 @@ export default function WalletMenu() {
                       deposit(amt);
                       setMode("menu");
                     }}
-                    className="border border-line bg-bg-panel-2 py-2 text-xs hover:border-brand"
+                    className="border border-line bg-bg-panel-2 py-2 text-xs hover:border-up"
                   >
                     ${amt}
                   </button>
@@ -128,7 +128,7 @@ export default function WalletMenu() {
                   value={customAmount}
                   onChange={(e) => setCustomAmount(e.target.value)}
                   placeholder="Custom amount"
-                  className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-xs outline-none focus:border-brand"
+                  className="w-full border border-line bg-bg-panel-2 px-2 py-2 text-xs outline-none focus:border-up"
                 />
                 <button
                   onClick={() => {

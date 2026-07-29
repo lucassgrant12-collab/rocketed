@@ -62,11 +62,11 @@ export default function PriceChart({ asset }: { asset: AssetId }) {
   return (
     <div className="border border-line bg-bg-panel-2 p-3">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
-        <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke="#2a2a2a" strokeWidth="1" />
+        <line x1="0" y1={H / 2} x2={W} y2={H / 2} stroke="rgba(0,0,0,0.15)" strokeWidth="1" />
         <polyline
           points={points}
           fill="none"
-          stroke={up ? "#21c25e" : "#ff4d4d"}
+          stroke={up ? "#16a34a" : "#dc2626"}
           strokeWidth="2"
         />
       </svg>

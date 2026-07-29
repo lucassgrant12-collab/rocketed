@@ -121,7 +121,7 @@ export default function PoolBoard() {
               <div
                 key={i}
                 className={`border p-3 ${
-                  isWinner ? "border-up bg-bg-panel-2" : isCurrent ? "border-brand" : "border-line bg-bg-panel"
+                  isWinner ? "border-up bg-bg-panel-2" : isCurrent ? "border-brand bg-bg-panel-2" : "border-line bg-bg-panel"
                 }`}
               >
                 <div className="mb-1.5 flex items-center justify-between">
@@ -149,7 +149,7 @@ export default function PoolBoard() {
                   <button
                     onClick={() => stake(i, amount)}
                     disabled={!connected || amount > availableBalance}
-                    className="w-full border border-line py-1.5 font-mono text-[11px] uppercase tracking-wider text-fg-dim hover:border-brand hover:text-brand disabled:cursor-not-allowed disabled:opacity-40"
+                    className="w-full border border-line py-1.5 font-mono text-[11px] uppercase tracking-wider text-fg-dim hover:border-up hover:text-up disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Stake ${amount} here
                   </button>
@@ -170,7 +170,7 @@ export default function PoolBoard() {
                   key={amt}
                   onClick={() => setAmount(amt)}
                   className={`border py-2 text-xs font-mono transition-colors ${
-                    amount === amt ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-fg"
+                    amount === amt ? "border-brand bg-brand text-bg" : "border-line text-fg-dim hover:border-up"
                   }`}
                 >
                   ${amt}

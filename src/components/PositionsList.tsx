@@ -107,7 +107,7 @@ export default function PositionsList() {
                 {p.status === "open" && (
                   <button
                     onClick={() => cashOut(p.id)}
-                    className="border border-line px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-dim hover:border-brand hover:text-brand"
+                    className="border border-line px-2 py-1.5 font-mono text-[10px] uppercase tracking-wider text-fg-dim hover:border-up hover:text-up"
                   >
                     Cash out
                   </button>

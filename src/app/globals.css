@@ -1,15 +1,15 @@
 @import "tailwindcss";
 
 :root {
-  --bg: #0a0a0a;
-  --bg-panel: #111111;
-  --bg-panel-2: #161616;
-  --line: #2a2a2a;
-  --fg: #f2f2f2;
-  --fg-dim: #8a8a8a;
-  --brand: #d7ff3f;
-  --up: #21c25e;
-  --down: #ff4d4d;
+  --bg: #ffffff;
+  --bg-panel: #ffffff;
+  --bg-panel-2: rgba(0, 0, 0, 0.06);
+  --line: #000000;
+  --fg: #000000;
+  --fg-dim: rgba(0, 0, 0, 0.55);
+  --brand: #000000;
+  --up: #16a34a;
+  --down: #dc2626;
 }
 
 @theme inline {
@@ -27,7 +27,7 @@
 }
 
 * {
-  border-radius: 0 !important;
+  border-radius: 14px;
   background-image: none !important;
 }
 
@@ -39,31 +39,35 @@ body {
 }
 
 ::selection {
-  background: var(--brand);
-  color: #0a0a0a;
+  background: var(--fg);
+  color: var(--bg);
 }
 
 input[type="range"] {
   -webkit-appearance: none;
   appearance: none;
-  height: 2px;
+  height: 3px;
+  border-radius: 999px;
   background: var(--line);
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: var(--brand);
   cursor: pointer;
-  border: 1px solid #0a0a0a;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--line);
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 14px;
-  height: 14px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
   background: var(--brand);
   cursor: pointer;
-  border: 1px solid #0a0a0a;
-  border-radius: 0;
+  border: 2px solid var(--bg);
+  box-shadow: 0 0 0 1px var(--line);
 }

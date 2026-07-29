@@ -4,6 +4,58 @@ Living log of what this project is, how it's built, what worked, what
 didn't, and why. Written to double as source material for the school /
 business presentation deck.
 
+## Build 06 — full theme reversal: white, rounded, four colors only
+
+A deliberate reversal of the original visual brief: white background,
+rounded corners everywhere, and a hard rule that only black, white,
+green, and red may appear anywhere on the site.
+
+**How the rounding flip actually works.** Build 01 enforced square
+corners with `* { border-radius: 0 !important; }`. Build 06 flips that
+same lever — `* { border-radius: 14px; }`, with the `!important`
+dropped — so every element is rounded by default with zero
+per-component changes, while still letting a specific element opt out
+with an explicit Tailwind class if it ever needs to (nothing currently
+does). The wallet's connection-status dot got an explicit `rounded-full`
+so it renders as a circle instead of a rounded square.
+
+**How the four-color rule actually works.** Every component already
+routed its colors through CSS variables (`--brand`, `--up`, `--down`,
+`--line`, `--fg`, `--bg`) rather than hardcoded hex — a payoff from
+Build 01's token-based design system. Retheming was mostly just
+rewriting the token values in `globals.css`: `--brand` (previously a
+lime accent) became pure black, `--up`/`--down` became a solid green
+and red, everything else became black, white, or a translucent black
+tint for secondary text and subtle fills (a *tint* of black, not a new
+hue). Nearly every component picked up the new palette automatically
+through the existing `bg-brand`, `text-up`, `border-line` classes —
+only a couple of files had actual hardcoded hex values
+(`PriceChart.tsx`'s chart line colors) that needed direct edits.
+
+**Two real bugs the token flip exposed.** Flattening the palette to
+mostly black surfaced two contrast bugs that a dark theme's variety of
+grays had been masking:
+1. Several `hover:border-fg` / `hover:border-brand` states were meant
+   to visibly darken a border on hover — harmless when the resting
+   border was a mid-gray, but once the resting border (`--line`) and
+   the hover target were *both* pure black, the hover effect became
+   invisible. Fixed by routing interactive hover/focus states through
+   green (`hover:border-up`) instead — now every hover/focus cue in
+   the app is a real, visible color change, and green picked up a
+   consistent second meaning: "interactive," not just "positive."
+2. Two disabled-button states (`disabled:bg-line disabled:text-fg-dim`
+   — the funded-tier "Start challenge" button and the custom bet's
+   submit button) rendered as solid black with a translucent-black
+   label on top of it: invisible text. Fixed by giving disabled
+   buttons a light tinted fill instead of a black one.
+
+Both were caught by actually looking at rendered screenshots at every
+state (hover, disabled, selected) rather than assuming a global
+token-variable swap would be visually safe everywhere it was used —
+worth remembering for the presentation as a second example (after
+Build 04's double-debit bug) of a bug that only shows up when you
+verify the real, rendered thing.
+
 ## Build 05 — System 1: pooled, crowd-priced betting (Pools tab)
 
 Everything through Build 04 is "System 2": you bet against the
@@ -216,6 +268,12 @@ wallet, real live BTC/ETH/SOL prices):
 - **Top-left = wallet.** The brand mark and the wallet
   connect/deposit dropdown sit together in the top-left of the sticky
   nav — first thing a user's eye hits.
+
+> **Superseded in Build 06:** the square-corners/dark-only rules above
+> were the original brief for build 01. Build 06 deliberately reversed
+> the first two — see below — while keeping the same underlying
+> discipline (one global rule instead of trusting every component to
+> remember). The "top-left = wallet" rule is unchanged.
 
 ## 4. How the pieces connect (the part worth presenting)
 

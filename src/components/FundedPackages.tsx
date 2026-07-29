@@ -56,7 +56,7 @@ export default function FundedPackages() {
                   <button
                     disabled={!connected || walletBalance < tier.depositCost || !!challenge}
                     onClick={() => startChallenge(tier.id)}
-                    className="mt-auto w-full border border-brand bg-brand py-2 text-xs font-bold uppercase tracking-wider text-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-line disabled:text-fg-dim"
+                    className="mt-auto w-full border border-brand bg-brand py-2 text-xs font-bold uppercase tracking-wider text-bg disabled:cursor-not-allowed disabled:border-line disabled:bg-bg-panel-2 disabled:text-fg-dim"
                   >
                     {challenge ? "Challenge in progress" : "Start challenge"}
                   </button>

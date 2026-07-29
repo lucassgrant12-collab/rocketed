@@ -45,7 +45,7 @@ export default function TradePanel() {
             className={`border px-3 py-1.5 font-mono text-xs uppercase tracking-wider transition-colors ${
               asset === a.id
                 ? "border-brand bg-brand text-bg"
-                : "border-line text-fg-dim hover:border-fg"
+                : "border-line text-fg-dim hover:border-up"
             }`}
           >
             {a.symbol}
